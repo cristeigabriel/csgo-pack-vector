@@ -260,7 +260,10 @@ struct vector_t
 			else
 			{
 				angles[ PITCH ] = atan2( -forward[ ROLL ], forward.get_length<2>( ) ) * ( 180.F / M_PI );
+				angles[ YAW ]   = atan2( forward[ YAW ], forward[ PITCH ] * ( 180.F / M_PI ) );
 			}
+
+			angles[ ROLL ] = 0.F;
 
 			return angles;
 		}
