@@ -3,6 +3,10 @@
 #include <cstdint>
 #include <cmath>
 #include <type_traits>
+#include <utility>
+#include <algorithm>
+#include <corecrt_math_defines.h>
+#include "enums.hh"
 
 namespace detail
 {
@@ -42,8 +46,8 @@ struct vector_t
 
 		/**
 		 * Len grabber
-		 * 
-		 * \return 
+		 *
+		 * \return
 		 */
 		constexpr auto get_size( )const->size_t
 		{
@@ -193,55 +197,83 @@ struct vector_t
 		//	CS:GO methods
 		//	============================================================================================
 
-		auto normalize( )->void
+		auto normalize_angle( )->void
+		{
+			static_assert( std::is_same_v<T, float> );
+			static_assert( Len == 3U );
+
+			operator[]( PITCH ) = std::isfinite( operator[]( PITCH ) ) ? std::remainderf( operator[]( PITCH ), 360.F ) : 0.F;
+			operator[]( YAW )   = std::isfinite( operator[]( YAW ) ) ? std::remainderf( operator[]( YAW ), 360.F ) : 0.F;
+			operator[]( ROLL )  = 0.F;
+		}
+
+		auto normalized_angle( )const->pack<Args...>
+		{
+			static_assert( std::is_same_v<T, float> );
+			static_assert( Len == 3U );
+
+			auto copy = get_copy( );
+			copy.normalize_angle( );
+			return copy;
+		}
+
+		auto normalize_length( )->void
 		{
 			static_assert( std::is_same_v<T, float> );
 			static_assert( Len == 3U );
 
 			const auto &length = get_length( );
 
-			//	[0] = Pitch
-			//	[1] = Yaw
-			//	[2] = Roll
-
 			if( length != 0.F )
 			{
-				operator[]( 0u ) /= length;
-				operator[]( 1u ) /= length;
-				operator[]( 2u ) /= length;
+				operator[]( PITCH ) /= length;
+				operator[]( YAW )   /= length;
+				operator[]( ROLL )  /= length;
 			}
 			else
 			{
-				operator[]( 0u ) = operator[]( 1u ) = 0.F;
-				operator[]( 2u )  = 1.F;
+				operator[]( PITCH ) = operator[]( YAW ) = 0.F;
+				operator[]( ROLL )  = 1.F;
 			}
 		}
 
-		auto normalized( )const->pack<Args...>
+		auto normalized_length( )const->pack<Args...>
 		{
 			static_assert( std::is_same_v<T, float> );
 			static_assert( Len == 3U );
 
-			const auto &copy   = get_copy( );
-			const auto &length = copy.get_length( );
+			auto copy = get_copy( );
+			copy.normalize_length( );
+			return copy;
+		}
 
-			//	[0] = Pitch
-			//	[1] = Yaw
-			//	[2] = Roll
-
-			if( length != 0.F )
+		auto get_angle( )const->pack<Args...>
+		{
+			auto forward = *this;
+			auto angles  = pack<Args...>{};
+		
+			if( forward[ PITCH ] == 0.F && forward[ YAW ] == 0.F )
 			{
-				copy[ 0 ] /= length;
-				copy[ 1 ] /= length;
-				copy[ 2 ] /= length;
+				angles[ PITCH ] = angles[ ROLL ] > 0.F ? -90.F : 90.F;
+				angles[ YAW ]   = 0.F;
 			}
 			else
 			{
-				copy[ 0 ] = copy[ 1 ] = 0.F;
-				copy[ 2 ] = 1.F;
+				angles[ PITCH ] = atan2( -forward[ ROLL ], forward.get_length<2>( ) ) * ( 180.F / M_PI );
 			}
 
-			return copy;
+			return angles;
+		}
+
+		auto clamp_angle( )
+		{
+			static_assert( std::is_same_v<T, float> );
+			static_assert( Len == 3U );
+
+			//	Enforce non-const operator[] to be called
+			operator[]( PITCH ) = std::clamp<float>( operator[]( PITCH ), -89.F, 89.F );
+			operator[]( YAW )   = std::clamp<float>( operator[]( YAW ), -180.F, 180.F );
+			operator[]( ROLL )  = 0.F;
 		}
 
 		//	============================================================================================
